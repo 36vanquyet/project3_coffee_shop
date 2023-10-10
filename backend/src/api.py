@@ -28,7 +28,17 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks')
+def get_drinks():
+    try:
+        drinks = Drink.query.all()
+        short_drinks = [drink.short() for drink in drinks]
+        return jsonify({
+            'success': True,
+            'drinks': short_drinks
+        }), 200
+    except Exception as e:
+        abort(500)
 
 '''
 @TODO implement endpoint
@@ -38,7 +48,18 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-
+@app.route('/drinks-detail')
+@requires_auth('get:drinks-detail')
+def get_drinks_detail(payload):
+    try:
+        drinks = Drink.query.all()
+        long_drinks = [drink.long() for drink in drinks]
+        return jsonify({
+            'success': True,
+            'drinks': long_drinks
+        }), 200
+    except Exception as e:
+        abort(500)
 
 '''
 @TODO implement endpoint
@@ -49,7 +70,22 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks', methods=['POST'])
+@requires_auth('post:drinks')
+def create_drink(payload):
+    try:
+        data = request.get_json()
+        title = data.get('title')
+        recipe = data.get('recipe')
 
+        new_drink = Drink(title=title, recipe=recipe)
+        new_drink.insert()
+        return jsonify({
+            'success': True,
+            'drinks': [new_drink.long()]
+        }), 200
+    except Exception as e:
+        abort(500)
 
 '''
 @TODO implement endpoint
@@ -62,7 +98,28 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the updated drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def update_drink(payload, id):
+    try:
+        drink = Drink.query.filter(Drink.id == id).one_or_none()
+        if drink is None:
+            abort(404)
+        
+        data = request.get_json()
+        if 'title' in data:
+            drink.title = data['title']
+        if 'recipe' in data:
+            drink.recipe = data['recipe']
 
+        drink.update()
+
+        return jsonify({
+            'success': True,
+            'drinks': [drink.long()]
+        }), 200
+    except Exception as e:
+        abort(500)
 
 '''
 @TODO implement endpoint
@@ -74,7 +131,23 @@ CORS(app)
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks/<int:id>', methods=['DELETE'])
+@requires_auth('delete:drinks')
+def delete_drink(payload, id):
+    try:
+        drink = Drink.query.filter(Drink.id == id).one_or_none()
+        
+        if drink is None:
+            abort(404)
 
+        drink.delete()
+
+        return jsonify({
+            'success': True,
+            'delete': id
+        }), 200
+    except Exception as e:
+        abort(500)
 
 # Error Handling
 '''
@@ -106,9 +179,31 @@ def unprocessable(error):
 @TODO implement error handler for 404
     error handler should conform to general task above
 '''
-
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({
+    'success': False,
+    'error': 404,
+    'message': 'resource not found'
+    }), 404
 
 '''
 @TODO implement error handler for AuthError
     error handler should conform to general task above
 '''
+@app.errorhandler(AuthError)
+def handle_auth_error(e):
+    return jsonify({
+        "success": False,
+        "error": e.status_code,
+        "message": e.error['description']
+    }), e.status_code
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    return jsonify({
+        'success': False,
+        'error': 500,
+        'message': 'Internal server error!'
+    }), 500
