@@ -17,7 +17,8 @@ CORS(app)
 !! NOTE THIS MUST BE UNCOMMENTED ON FIRST RUN
 !! Running this funciton will add one
 '''
-# db_drop_and_create_all()
+with app.app_context():
+    db_drop_and_create_all()
 
 # ROUTES
 '''
@@ -28,17 +29,14 @@ CORS(app)
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks')
+@app.route('/drinks', methods=['GET'])
 def get_drinks():
-    try:
-        drinks = Drink.query.all()
-        short_drinks = [drink.short() for drink in drinks]
-        return jsonify({
-            'success': True,
-            'drinks': short_drinks
-        }), 200
-    except Exception as e:
-        abort(500)
+    drinks = Drink.query.all()
+    short_drinks = [drink.short() for drink in drinks]
+    return jsonify({
+        'success': True,
+        'drinks': short_drinks
+    }), 200
 
 '''
 @TODO implement endpoint
@@ -48,18 +46,15 @@ def get_drinks():
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks-detail')
-@requires_auth('get:drinks-detail')
+@app.route('/drinks-detail', methods=['GET'])
+@requires_auth(permission='get:drinks-detail')
 def get_drinks_detail(payload):
-    try:
-        drinks = Drink.query.all()
-        long_drinks = [drink.long() for drink in drinks]
-        return jsonify({
-            'success': True,
-            'drinks': long_drinks
-        }), 200
-    except Exception as e:
-        abort(500)
+    drinks = Drink.query.all()
+    long_drinks = [drink.long() for drink in drinks]
+    return jsonify({
+        'success': True,
+        'drinks': long_drinks
+    }), 200
 
 '''
 @TODO implement endpoint
@@ -71,21 +66,21 @@ def get_drinks_detail(payload):
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks', methods=['POST'])
-@requires_auth('post:drinks')
+@requires_auth(permission='post:drinks')
 def create_drink(payload):
-    try:
-        data = request.get_json()
-        title = data.get('title')
-        recipe = data.get('recipe')
+    body = request.get_json()
+    title = body.get('title')
+    recipe = body.get('recipe')
 
-        new_drink = Drink(title=title, recipe=recipe)
-        new_drink.insert()
-        return jsonify({
-            'success': True,
-            'drinks': [new_drink.long()]
-        }), 200
-    except Exception as e:
-        abort(500)
+    if  not title and not recipe:
+        abort(403)
+
+    new_drink = Drink(title=title, recipe=recipe)
+    new_drink.insert()
+    return jsonify({
+        'success': True,
+        'drinks': [new_drink.long()]
+    }), 200
 
 '''
 @TODO implement endpoint
@@ -101,25 +96,26 @@ def create_drink(payload):
 @app.route('/drinks/<int:id>', methods=['PATCH'])
 @requires_auth('patch:drinks')
 def update_drink(payload, id):
-    try:
-        drink = Drink.query.filter(Drink.id == id).one_or_none()
-        if drink is None:
-            abort(404)
-        
-        data = request.get_json()
-        if 'title' in data:
-            drink.title = data['title']
-        if 'recipe' in data:
-            drink.recipe = data['recipe']
+    drink = Drink.query.filter(Drink.id == id).one_or_none()
 
-        drink.update()
+    if not drink:
+        abort(404)
+    
+    body = request.get_json()
+    title = body.get('title', None)
+    recipe = body.get('recipe', None)
 
-        return jsonify({
-            'success': True,
-            'drinks': [drink.long()]
-        }), 200
-    except Exception as e:
-        abort(500)
+    if not title and not recipe:
+        abort(400)
+
+    drink.title = title
+    drink.recipe = recipe
+    drink.update()
+
+    return jsonify({
+        'success': True,
+        'drinks': [drink.long()]
+    }), 200
 
 '''
 @TODO implement endpoint
@@ -132,22 +128,19 @@ def update_drink(payload, id):
         or appropriate status code indicating reason for failure
 '''
 @app.route('/drinks/<int:id>', methods=['DELETE'])
-@requires_auth('delete:drinks')
+@requires_auth(permission='delete:drinks')
 def delete_drink(payload, id):
-    try:
-        drink = Drink.query.filter(Drink.id == id).one_or_none()
-        
-        if drink is None:
-            abort(404)
+    drink = Drink.query.filter(Drink.id == id).one_or_none()
+    
+    if not drink:
+        abort(404)
 
-        drink.delete()
+    drink.delete()
 
-        return jsonify({
-            'success': True,
-            'delete': id
-        }), 200
-    except Exception as e:
-        abort(500)
+    return jsonify({
+        'success': True,
+        'delete': id
+    }), 200
 
 # Error Handling
 '''
@@ -184,7 +177,7 @@ def not_found(error):
     return jsonify({
     'success': False,
     'error': 404,
-    'message': 'resource not found'
+    'message': error.description
     }), 404
 
 '''
@@ -200,10 +193,10 @@ def handle_auth_error(e):
     }), e.status_code
 
 
-@app.errorhandler(500)
-def internal_server_error(error):
+@app.errorhandler(400)
+def bad_request(error):
     return jsonify({
         'success': False,
-        'error': 500,
-        'message': 'Internal server error!'
-    }), 500
+        'error': 400,
+        'message': error.description
+    }), 400
