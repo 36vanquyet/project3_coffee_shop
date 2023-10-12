@@ -32,6 +32,21 @@ class AuthError(Exception):
     return the token part of the header
 '''
 def get_token_auth_header():
+    '''
+    Get the header from the request.
+
+    Argument:
+        None
+        
+    Return:
+        The token part of the header.
+
+    Raises:
+        AuthError 401: If no header is present
+        AuthError 401: If the header is malformed
+        AuthError 401: If the Token is not found in the header
+        AuthError 401: If the header is not bearer token
+    '''
     auth = request.headers.get('Authorization', None)
     if not auth:
         raise AuthError(
@@ -73,18 +88,21 @@ def get_token_auth_header():
     token = parts[1]
     return token
 
-'''
-@TODO implement check_permissions(permission, payload) method
-    @INPUTS
-        permission: string permission (i.e. 'post:drink')
-        payload: decoded jwt payload
-
-    it should raise an AuthError if permissions are not included in the payload
-        !!NOTE check your RBAC settings in Auth0
-    it should raise an AuthError if the requested permission string is not in the payload permissions array
-    return true otherwise
-'''
 def check_permissions(permission, payload):
+    '''
+    Check if the payload contains the permission.
+
+    Argument:
+        permission: string permission (i.e. 'post:drink')
+        payload: decoded jwt payload.
+
+    Return:
+        True otherwise.
+
+    Raises:
+        AuthError 400: If the permission is not in the payload
+        AuthError 403: If the permission is not found in the payload
+    '''
     if 'permissions' not in payload:
         raise AuthError(
             error={
@@ -105,20 +123,23 @@ def check_permissions(permission, payload):
 
     return True
 
-'''
-@TODO implement verify_decode_jwt(token) method
-    @INPUTS
-        token: a json web token (string)
-
-    it should be an Auth0 token with key id (kid)
-    it should verify the token using Auth0 /.well-known/jwks.json
-    it should decode the payload from the token
-    it should validate the claims
-    return the decoded payload
-
-    !!NOTE urlopen has a common certificate error described here: https://stackoverflow.com/questions/50236117/scraping-ssl-certificate-verify-failed-error-for-http-en-wikipedia-org
-'''
 def verify_decode_jwt(token):
+    '''
+    Verify and decode the JWT.
+
+    Argument:
+        token: JWT token
+
+    Return
+        The decoded payload.
+
+    Raises:
+        AuthError 401: If the token is expired
+        AuthError 401: If the token is invalid
+        AuthError 401: If the token is malformed
+        AuthError 400: If the token is not found
+        AuthError 403: If the key is not found
+    '''
     jsonurl = urlopen(f'https://{AUTH0_DOMAIN}/.well-known/jwks.json')
     jwks = json.loads(jsonurl.read())
     unverified_header = jwt.get_unverified_header(token)
