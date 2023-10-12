@@ -8,7 +8,7 @@ from urllib.request import urlopen
 
 AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN', 'quyetcv1.us.auth0.com')
 ALGORITHMS = os.getenv('ALGORITHMS', ['RS256'])
-API_AUDIENCE = os.getenv('API_AUDIENCE', 'coffee_shop')
+API_AUDIENCE = os.getenv('API_AUDIENCE', 'http://localhost:5000/login')
 
 ## AuthError Exception
 '''

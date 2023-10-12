@@ -75,7 +75,7 @@ def create_drink(payload):
     if  not title and not recipe:
         abort(403)
 
-    new_drink = Drink(title=title, recipe=recipe)
+    new_drink = Drink(title=title, recipe=json.dumps(recipe))
     new_drink.insert()
     return jsonify({
         'success': True,
@@ -109,7 +109,7 @@ def update_drink(payload, id):
         abort(400)
 
     drink.title = title
-    drink.recipe = recipe
+    drink.recipe = json.dumps(recipe)
     drink.update()
 
     return jsonify({
